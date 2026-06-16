@@ -1,0 +1,162 @@
+trainer:
+  target: train_stage2.TrainerDifIRLPIPS
+
+swinir:
+  ckpt_path: "weights/swinir_0195000.pt"
+  params:
+    img_size: 64
+    patch_size: 1
+    in_chans: 3
+    embed_dim: 180
+    depths: [6, 6, 6, 6, 6, 6, 6, 6]
+    num_heads: [6, 6, 6, 6, 6, 6, 6, 6]
+    window_size: 8
+    mlp_ratio: 2
+    sf: 2
+    img_range: 1.0
+    upsampler: "nearest+conv"
+    resi_connection: "1conv"
+    unshuffle: True
+    unshuffle_scale: 2
+    
+    
+model:
+  target: models.unet.UNetModelSwin
+  ckpt_path: ~
+  params:
+    image_size: 64
+    in_channels: 8
+    model_channels: 160
+    out_channels: 8
+    attention_resolutions: [64,32,16,8]
+    dropout: 0
+    channel_mult: [1, 2, 2, 4]
+    num_res_blocks: [2, 2, 2, 2]
+    conv_resample: True
+    dims: 2
+    use_fp16: False
+    num_head_channels: 32
+    use_scale_shift_norm: True
+    resblock_updown: False
+    swin_depth: 2
+    swin_embed_dim: 192
+    window_size: 8
+    mlp_ratio: 4
+    cond_lq: True
+    lq_size: 128
+
+diffusion:
+  target: models.script_util.create_gaussian_diffusion
+  params:
+    sf: 4
+    schedule_name: exponential
+    schedule_kwargs:
+      power: 0.3
+    etas_end: 0.99
+    steps: 15
+    min_noise_level: 0.04
+    kappa: 2.0
+    weighted_mse: False
+    predict_type: xstart
+    timestep_respacing: ~
+    scale_factor: 1.0
+    normalize_input: True
+    latent_flag: True
+
+autoencoder:
+  target: ldm.models.autoencoder.VQModelTorch
+  ckpt_path: weights/ffhq512_vq_f8_dim8_face.pth
+  use_fp16: True
+  tune_decoder: False
+  params:
+    lora_tune_decoder: False
+    embed_dim: 8
+    n_embed: 4096
+    ddconfig:
+      double_z: False
+      z_channels: 8
+      resolution: 512
+      in_channels: 3
+      out_ch: 3
+      ch: 64
+      ch_mult: [1, 2, 4, 8]
+      num_res_blocks: [1, 2, 3, 4]
+      attn_resolutions: []
+      dropout: 0.0
+      padding_mode: zeros
+
+data:
+  train:
+    target: stage1_utils.codeformer.ResshiftOnlineDataset
+    type: resshift_online
+    params:
+      file_list: "files_ffhq_512_shuf_train.list"
+      file_backend_cfg:
+        target: stage1_utils.file_backend.HardDiskBackend
+      out_size: 512
+      crop_type: center
+      
+      # Degradation params
+      blur_kernel_size: 13
+      blur_sigma: [0.1, 3.0]
+      downsample_range: [1, 3]
+      noise_range: [0, 15]
+      jpeg_range: [30, 100]
+      kernel_list: ['iso', 'aniso']
+      kernel_prob: [0.5, 0.5]
+      
+
+  val:
+    target: stage1_utils.codeformer.ResshiftOnlineDataset
+    type: resshift_online
+    params:
+      file_list: "celeba_512_val.list"
+      file_backend_cfg:
+        target: stage1_utils.file_backend.HardDiskBackend
+      out_size: 512 
+      crop_type: center
+      # [Important] Use same degradation params as train for consistent evaluation
+      blur_kernel_size: 13
+      blur_sigma: [0.1, 3.0]
+      downsample_range: [1, 3]
+      noise_range: [0, 15]
+      jpeg_range: [30, 100]
+      kernel_list: ['iso', 'aniso']
+      kernel_prob: [0.5, 0.5]
+
+
+train:
+  # learning rate
+  lr: 1e-4
+  lr_min: 2e-5
+  lr_schedule: cosin
+  warmup_iterations: 5000
+  batch: [54, 6]
+  microbatch: 6
+  num_workers: 8
+  prefetch_factor: 2
+  # optimization settings
+  weight_decay: 0
+  ema_rate: 0.999
+  iterations: 200000
+  # save logging
+  save_freq: 2000
+  #log打印次数/训练保存图片次数/验证保存图片次数/
+  log_freq: [200, 2000, 40] #100 2000 40
+  loss_coef: [1.0, 1.0]
+  local_logging: True
+  tf_logging: True
+  use_ema_val: True
+  #验证间隔 2000
+  val_freq: 2000
+  val_y_channel: True
+  val_resolution: 128
+  val_padding_mode: reflect
+  # training setting
+  use_amp: True
+  seed: 123456
+  global_seeding: False
+  # model compile
+  compile:
+    flag: False
+    mode: reduce-overhead
