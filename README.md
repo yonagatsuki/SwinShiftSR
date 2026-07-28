@@ -4,6 +4,12 @@ This project focuses on face image super-resolution for noisy low-resolution ima
 
 The proposed method combines SwinIR and ResShift to reduce noise and restore facial details, producing clearer and more natural high-resolution face images.
 
+## Model Weights and Training
+
+The pretrained model weights, training scripts, and detailed training configurations are not publicly released.
+
+This repository is intended to present the research concept, methodology, and experimental results.
+
 ## Results
 
 From left to right, each result contains:
@@ -15,11 +21,6 @@ From left to right, each result contains:
 
 The original resolutions of **LQ** and **Cleaned LQ** are `128 × 128`. For easier visual comparison, all images are displayed at the same size below. The resolution of the **Final HQ Result** is `512 × 512`.
 
-## Model Weights and Training
-
-The pretrained model weights, training scripts, and detailed training configurations are not publicly released.
-
-This repository is intended to present the research concept, methodology, and experimental results.
 
 ![Result 25](./results/image25.png)
 
